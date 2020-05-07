@@ -32,7 +32,7 @@ function buildDocFromHash(hash = {}) {
     data() {
       const copy = { ...hash };
       delete copy.id;
-      delete copy._subcollections;
+      delete copy._collections;
       return copy;
     },
   };
@@ -147,11 +147,11 @@ FakeFirestore.Query = class {
         requestedRecords.push(...documents);
       }
 
-      // For each collection in subcollections, get each document's _subcollections array
+      // For each collection in subcollections, get each document's _collections array
       // and push onto st.
       Object.values(subcollections).forEach(collection => {
-        const documents = collection.filter(d => !!d._subcollections);
-        st.push(...documents.map(d => d._subcollections));
+        const documents = collection.filter(d => !!d._collections);
+        st.push(...documents.map(d => d._collections));
       });
     }
 
@@ -238,11 +238,11 @@ FakeFirestore.CollectionReference = class extends FakeFirestore.Query {
         return [];
       }
       const document = requestedRecords.find(record => record.id === documentId);
-      if (!document || !document._subcollections) {
+      if (!document || !document._collections) {
         return [];
       }
 
-      requestedRecords = document._subcollections[collectionId] || [];
+      requestedRecords = document._collections[collectionId] || [];
       if (requestedRecords.length === 0) {
         return [];
       }
@@ -309,10 +309,10 @@ FakeFirestore.DocumentReference = class {
       const collectionId = pathArray[index];
       const documentId = pathArray[index + 1];
 
-      if (!document || !document._subcollections) {
+      if (!document || !document._collections) {
         return Promise.resolve({ exists: false, id: this.id });
       }
-      requestedRecords = document._subcollections[collectionId] || [];
+      requestedRecords = document._collections[collectionId] || [];
       if (requestedRecords.length === 0) {
         return Promise.resolve({ exists: false, id: this.id });
       }

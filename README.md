@@ -123,7 +123,7 @@ describe('we can query', () => {
         {
           id: 'abc789',
           name: 'Dwight Schrute',
-          _subcollections: {
+          _collections: {
             employment: {
               { id: '123abc', employer: 'Dunder Mifflin' },
               { id: '123def', employer: 'Schrute Farms' }

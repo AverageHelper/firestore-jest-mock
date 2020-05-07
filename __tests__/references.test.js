@@ -24,7 +24,7 @@ describe('Reference Sentinels', () => {
         id: 'bob',
         name: 'Bob',
         occupation: 'repairman',
-        _subcollections: {
+        _collections: {
           family: [
             { id: 'thing1', name: 'Thing 1', relation: 'pet' },
             { id: 'thing2', name: 'Thing 2', relation: 'pet' },

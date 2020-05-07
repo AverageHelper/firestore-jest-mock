@@ -15,7 +15,7 @@ describe('Queries', () => {
         id: 'bob',
         name: 'Bob',
         occupation: 'insurance agent',
-        _subcollections: {
+        _collections: {
           family: [
             { id: 'violet', name: 'Violet', relation: 'daughter' },
             { id: 'dash', name: 'Dash', relation: 'son' },
@@ -170,7 +170,7 @@ describe('Queries', () => {
       expect(record.exists).toBe(true);
       expect(record.id).toBe('bob');
       expect(record.data()).toHaveProperty('name', 'Bob');
-      expect(record.data()).not.toHaveProperty('_subcollections');
+      expect(record.data()).not.toHaveProperty('_collections');
     });
 
     test('it can fetch records from subcollections', async () => {
