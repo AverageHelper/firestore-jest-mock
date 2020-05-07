@@ -432,6 +432,12 @@ FakeFirestore.FieldValue = class {
   }
 };
 
+/*
+ * ============
+ *  Timestamp
+ * ============
+ */
+
 FakeFirestore.Timestamp = class {
   constructor(seconds, nanoseconds) {
     this.seconds = seconds;
@@ -440,7 +446,7 @@ FakeFirestore.Timestamp = class {
 
   static now() {
     const now = Date.now();
-    return new FakeFirestore.FieldValue.Timestamp(now / 1000, 0);
+    return new FakeFirestore.Timestamp(now / 1000, 0);
   }
 
   isEqual(other) {
