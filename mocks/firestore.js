@@ -198,9 +198,9 @@ FakeFirestore.CollectionReference = class extends FakeFirestore.Query {
     }
   }
 
-  add(object) {
+  add() {
     mockAdd(...arguments);
-    return Promise.resolve(buildDocFromHash(object));
+    return Promise.resolve(new FakeFirestore.DocumentReference('abc123', this));
   }
 
   doc(id) {
