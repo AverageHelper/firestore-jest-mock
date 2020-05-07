@@ -159,28 +159,23 @@ FakeFirestore.Query = class {
   }
 
   where() {
-    mockWhere(...arguments);
-    return this;
+    return mockWhere(...arguments) || this;
   }
 
   limit() {
-    mockLimit(...arguments);
-    return this;
+    return mockLimit(...arguments) || this;
   }
 
   orderBy() {
-    mockOrderBy(...arguments);
-    return this;
+    return mockOrderBy(...arguments) || this;
   }
 
   startAfter() {
-    mockStartAfter(...arguments);
-    return this;
+    return mockStartAfter(...arguments) || this;
   }
 
   startAt() {
-    mockStartAt(...arguments);
-    return this;
+    return mockStartAt(...arguments) || this;
   }
 };
 
