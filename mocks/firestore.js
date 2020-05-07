@@ -11,6 +11,8 @@ const mockSet = jest.fn();
 const mockDelete = jest.fn();
 const mockOrderBy = jest.fn();
 const mockLimit = jest.fn();
+const mockStartAfter = jest.fn();
+const mockStartAt = jest.fn();
 
 const mockArrayRemoveFieldValue = jest.fn();
 const mockArrayUnionFieldValue = jest.fn();
@@ -30,13 +32,10 @@ function buildDocFromHash(hash = {}) {
     data() {
       const copy = { ...hash };
       delete copy.id;
+      delete copy._subcollections;
       return copy;
     },
   };
-}
-
-function idHasCollectionName(id) {
-  return id.match('/');
 }
 
 function buildQuerySnapShot(requestedRecords) {
@@ -45,6 +44,7 @@ function buildQuerySnapShot(requestedRecords) {
 
   return {
     empty: multipleRecords.length < 1,
+    size: multipleRecords.length,
     docs,
     forEach(callback) {
       return docs.forEach(callback);
@@ -52,74 +52,15 @@ function buildQuerySnapShot(requestedRecords) {
   };
 }
 
+/*
+ * ============
+ *  Firestore
+ * ============
+ */
+
 class FakeFirestore {
   constructor(stubbedDatabase = {}) {
-    this.isFetchingSingle = false;
     this.database = stubbedDatabase;
-  }
-
-  set collectionName(collectionName) {
-    this._collectionName = collectionName;
-    this.recordToFetch = null;
-  }
-
-  get collectionName() {
-    return this._collectionName;
-  }
-
-  collection(collectionName) {
-    this.isFetchingSingle = false;
-    this.collectionName = collectionName;
-    mockCollection(...arguments);
-    return this;
-  }
-
-  collectionGroup(collectionName) {
-    this.isFetchingSingle = false;
-    this.collectionName = collectionName;
-    mockCollectionGroup(...arguments);
-    return this;
-  }
-
-  where() {
-    this.isFetchingSingle = false;
-    mockWhere(...arguments);
-    return this;
-  }
-
-  get() {
-    mockGet(...arguments);
-
-    if (this.recordToFetch) {
-      return Promise.resolve(buildDocFromHash(this.recordToFetch));
-    }
-    let contentToReturn;
-    const requestedRecords = this.database[this.collectionName] || [];
-    if (this.isFetchingSingle) {
-      if (requestedRecords.length < 1 || !this.recordToFetch) {
-        contentToReturn = { exists: false };
-      } else if (Array.isArray(requestedRecords)) {
-        contentToReturn = buildDocFromHash(requestedRecords[0]);
-      } else {
-        contentToReturn = buildDocFromHash(requestedRecords);
-      }
-    } else {
-      contentToReturn = buildQuerySnapShot(requestedRecords);
-    }
-
-    return Promise.resolve(contentToReturn);
-  }
-
-  getAll() {
-    const requestedRecords = this.database[this.collectionName];
-
-    mockGetAll(...arguments);
-
-    const records = requestedRecords
-      .map(record => buildDocFromHash(record))
-      .filter(record => !!record.id);
-
-    return Promise.resolve(records);
   }
 
   batch() {
@@ -141,18 +82,253 @@ class FakeFirestore {
     };
   }
 
-  doc(id) {
-    if (idHasCollectionName(id)) {
-      const pathArray = id.split('/');
-      id = pathArray.pop();
-      this.collectionName = pathArray.join('/');
+  collection(collectionName) {
+    mockCollection(...arguments);
+    return new FakeFirestore.CollectionReference(collectionName, null, this);
+  }
+
+  collectionGroup(collectionName) {
+    mockCollectionGroup(...arguments);
+    return new FakeFirestore.Query(collectionName, this);
+  }
+
+  doc(path) {
+    mockDoc(path);
+
+    const pathArray = path.split('/');
+    // Must be document-level, so even-numbered elements
+    if (pathArray.length % 2) {
+      throw new Error('The path array must be document-level');
     }
 
-    mockDoc(id);
-    this.isFetchingSingle = true;
-    const records = this.database[this.collectionName] || [];
-    this.recordToFetch = records.find(record => record.id === id);
+    let doc = null;
+    for (let index = 0; index < pathArray.length; index++) {
+      const collectionId = pathArray[index];
+      const documentId = pathArray[index + 1];
+
+      const collection = new FakeFirestore.CollectionReference(collectionId, doc, this);
+      doc = new FakeFirestore.DocumentReference(documentId, collection);
+
+      index++; // skip to next collection
+    }
+    return doc;
+  }
+
+  getAll() {
+    mockGetAll(...arguments);
+    return Promise.all([...arguments].map(r => r.get()));
+  }
+}
+
+/*
+ * ============
+ *  Queries
+ * ============
+ */
+
+FakeFirestore.Query = class {
+  constructor(collectionName, firestore) {
+    this.collectionName = collectionName;
+    this.firestore = firestore;
+  }
+
+  get() {
+    // Return all records in collections matching collectionName (use DFS)
+    const requestedRecords = [];
+    // requestedRecords.push(...this.firestore.database[this.collectionName]);
+
+    const st = [this.firestore.database];
+    // At each collection list node, get collection in collection list whose id
+    // matches this.collectionName
+    while (st.length > 0) {
+      const subcollections = st.pop();
+      const documents = subcollections[this.collectionName];
+      if (documents && Array.isArray(documents)) {
+        requestedRecords.push(...documents);
+      }
+
+      // For each collection in subcollections, get each document's _subcollections array
+      // and push onto st.
+      Object.values(subcollections).forEach(collection => {
+        const documents = collection.filter(d => !!d._subcollections);
+        st.push(...documents.map(d => d._subcollections));
+      });
+    }
+
+    return Promise.resolve(buildQuerySnapShot(requestedRecords));
+  }
+
+  where() {
+    mockWhere(...arguments);
     return this;
+  }
+
+  limit() {
+    mockLimit(...arguments);
+    return this;
+  }
+
+  orderBy() {
+    mockOrderBy(...arguments);
+    return this;
+  }
+
+  startAfter() {
+    mockStartAfter(...arguments);
+    return this;
+  }
+
+  startAt() {
+    mockStartAt(...arguments);
+    return this;
+  }
+};
+
+/*
+ * ============
+ *  Collection Reference
+ * ============
+ */
+
+FakeFirestore.CollectionReference = class extends FakeFirestore.Query {
+  constructor(id, parent, firestore) {
+    super(id, firestore || parent.firestore);
+
+    this.id = id;
+    this.parent = parent;
+    if (parent) {
+      this.path = parent.path.concat(`/${id}`);
+    } else {
+      this.path = `database/${id}`;
+    }
+  }
+
+  add(object) {
+    mockAdd(...arguments);
+    return Promise.resolve(buildDocFromHash(object));
+  }
+
+  doc(id) {
+    mockDoc(id);
+    return new FakeFirestore.DocumentReference(id, this, this.firestore);
+  }
+
+  /**
+   * @function records
+   * A private method, meant mainly to be used by `get` and other internal objects to retrieve
+   * the list of database records referenced by this CollectionReference.
+   * @returns {Object[]} An array of mocked document records.
+   */
+  records() {
+    const pathArray = this.path.split('/');
+
+    pathArray.shift(); // drop 'database'; it's always first
+    let requestedRecords = this.firestore.database[pathArray.shift()];
+    if (pathArray.length === 0) {
+      return requestedRecords || [];
+    }
+
+    // Since we're a collection, we can assume that pathArray.length % 2 is always 0
+
+    for (let index = 0; index < pathArray.length; index += 2) {
+      const documentId = pathArray[index];
+      const collectionId = pathArray[index + 1];
+
+      if (!requestedRecords) {
+        return [];
+      }
+      const document = requestedRecords.find(record => record.id === documentId);
+      if (!document || !document._subcollections) {
+        return [];
+      }
+
+      requestedRecords = document._subcollections[collectionId] || [];
+      if (requestedRecords.length === 0) {
+        return [];
+      }
+
+      // +2 skips to next collection
+    }
+
+    return requestedRecords;
+  }
+
+  get() {
+    mockGet(...arguments);
+    return Promise.resolve(buildQuerySnapShot(this.records()));
+  }
+
+  isEqual(other) {
+    return (
+      other instanceof FakeFirestore.CollectionReference &&
+      other.firestore === this.firestore &&
+      other.path === this.path
+    );
+  }
+};
+
+/*
+ * ============
+ *  Document Reference
+ * ============
+ */
+
+FakeFirestore.DocumentReference = class {
+  constructor(id, parent) {
+    this.id = id;
+    this.parent = parent;
+    this.firestore = parent.firestore;
+    this.path = parent.path.concat(`/${id}`);
+  }
+
+  collection(collectionName) {
+    mockCollection(...arguments);
+    return new FakeFirestore.CollectionReference(collectionName, this);
+  }
+
+  delete() {
+    mockDelete(...arguments);
+    return Promise.resolve();
+  }
+
+  get() {
+    mockGet(...arguments);
+    const pathArray = this.path.split('/');
+
+    pathArray.shift(); // drop 'database'; it's always first
+    let requestedRecords = this.firestore.database[pathArray.shift()];
+    let document = null;
+    if (requestedRecords) {
+      const documentId = pathArray.shift();
+      document = requestedRecords.find(record => record.id === documentId);
+    } else {
+      return Promise.resolve({ exists: false, id: this.id });
+    }
+
+    for (let index = 0; index < pathArray.length; index += 2) {
+      const collectionId = pathArray[index];
+      const documentId = pathArray[index + 1];
+
+      if (!document || !document._subcollections) {
+        return Promise.resolve({ exists: false, id: this.id });
+      }
+      requestedRecords = document._subcollections[collectionId] || [];
+      if (requestedRecords.length === 0) {
+        return Promise.resolve({ exists: false, id: this.id });
+      }
+
+      document = requestedRecords.find(record => record.id === documentId);
+      if (!document) {
+        return Promise.resolve({ exists: false, id: this.id });
+      }
+
+      // +2 skips to next document
+    }
+
+    if (document) {
+      return Promise.resolve(buildDocFromHash(document));
+    }
+    return Promise.resolve({ exists: false, id: this.id });
   }
 
   update(object) {
@@ -165,26 +341,20 @@ class FakeFirestore {
     return Promise.resolve(buildDocFromHash(object));
   }
 
-  add(object) {
-    mockAdd(...arguments);
-    return Promise.resolve(buildDocFromHash(object));
+  isEqual(other) {
+    return (
+      other instanceof FakeFirestore.DocumentReference &&
+      other.firestore === this.firestore &&
+      other.path === this.path
+    );
   }
+};
 
-  delete() {
-    mockDelete(...arguments);
-    return Promise.resolve();
-  }
-
-  orderBy() {
-    mockOrderBy(...arguments);
-    return this;
-  }
-
-  limit() {
-    mockLimit(...arguments);
-    return this;
-  }
-}
+/*
+ * ============
+ *  FieldValue
+ * ============
+ */
 
 FakeFirestore.FieldValue = class {
   constructor(type, value) {
@@ -274,6 +444,9 @@ module.exports = {
   mockGet,
   mockGetAll,
   mockOrderBy,
+  mockLimit,
+  mockStartAfter,
+  mockStartAt,
   mockSet,
   mockUpdate,
   mockWhere,

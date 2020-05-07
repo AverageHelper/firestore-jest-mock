@@ -15,6 +15,9 @@ const firebaseStub = overrides => {
     },
 
     firestore: function firestoreConstructor() {
+      firestoreConstructor.Query = FakeFirestore.Query;
+      firestoreConstructor.CollectionReference = FakeFirestore.CollectionReference;
+      firestoreConstructor.DocumentReference = FakeFirestore.DocumentReference;
       firestoreConstructor.FieldValue = FakeFirestore.FieldValue;
       return new FakeFirestore(overrides.database);
     },
