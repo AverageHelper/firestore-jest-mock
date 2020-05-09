@@ -13,6 +13,7 @@ const mockOrderBy = jest.fn();
 const mockLimit = jest.fn();
 const mockStartAfter = jest.fn();
 const mockStartAt = jest.fn();
+const mockRunTransaction = jest.fn();
 
 const mockArrayRemoveFieldValue = jest.fn();
 const mockArrayUnionFieldValue = jest.fn();
@@ -117,6 +118,11 @@ class FakeFirestore {
   getAll() {
     mockGetAll(...arguments);
     return Promise.all([...arguments].map(r => r.get()));
+  }
+
+  runTransaction(updateFunction) {
+    mockRunTransaction(...arguments);
+    return updateFunction(new FakeFirestore.Transaction());
   }
 }
 
@@ -453,6 +459,47 @@ FakeFirestore.Timestamp = class {
   }
 };
 
+/*
+ * ============
+ *  Transactions
+ * ============
+ */
+
+FakeFirestore.Transaction = class {
+  get(ref) {
+    FakeFirestore.Transaction.getMock(...arguments);
+    return ref.get();
+  }
+
+  set(ref) {
+    FakeFirestore.Transaction.setMock(...arguments);
+    const args = [...arguments];
+    args.shift();
+    ref.set(...args);
+    return this;
+  }
+
+  update(ref) {
+    FakeFirestore.Transaction.updateMock(...arguments);
+    const args = [...arguments];
+    args.shift();
+    ref.update(...args);
+    return this;
+  }
+
+  delete(ref) {
+    FakeFirestore.Transaction.deleteMock(...arguments);
+    ref.delete();
+    return this;
+  }
+};
+
+// Sandbox static Jest function mocks
+FakeFirestore.Transaction.deleteMock = jest.fn();
+FakeFirestore.Transaction.getMock = jest.fn();
+FakeFirestore.Transaction.setMock = jest.fn();
+FakeFirestore.Transaction.updateMock = jest.fn();
+
 module.exports = {
   FakeFirestore,
   mockAdd,
@@ -467,6 +514,7 @@ module.exports = {
   mockLimit,
   mockStartAfter,
   mockStartAt,
+  mockRunTransaction,
   mockSet,
   mockUpdate,
   mockWhere,
