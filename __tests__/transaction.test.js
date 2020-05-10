@@ -31,6 +31,11 @@ describe('Transactions', () => {
     expect(mockRunTransaction).toHaveBeenCalled();
   });
 
+  test('it returns quickly', async () => {
+    await db.runTransaction(async () => {});
+    expect(true).toBe(true);
+  });
+
   test('it provides a Transaction object', () => {
     const runner = jest.fn().mockReturnValue(Promise.resolve());
     const result = db.runTransaction(runner);

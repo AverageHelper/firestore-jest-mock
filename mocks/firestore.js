@@ -326,7 +326,7 @@ FakeFirestore.DocumentReference = class {
       // +2 skips to next document
     }
 
-    if (document) {
+    if (!!document || false) {
       return Promise.resolve(buildDocFromHash(document));
     }
     return Promise.resolve({ exists: false, id: this.id });
