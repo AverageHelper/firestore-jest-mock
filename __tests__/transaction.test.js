@@ -2,9 +2,13 @@ const { mockFirebase, FakeFirestore } = require('firestore-jest-mock');
 const {
   mockRunTransaction,
   mockDelete,
+  mockDeleteTransaction,
   mockUpdate,
+  mockUpdateTransaction,
   mockSet,
+  mockSetTransaction,
   mockGet,
+  mockGetTransaction,
 } = require('firestore-jest-mock/mocks/firestore');
 
 describe('Transactions', () => {
@@ -47,7 +51,7 @@ describe('Transactions', () => {
 
   test('getMock is accessible', async () => {
     expect.assertions(6);
-    expect(FakeFirestore.Transaction.getMock).not.toHaveBeenCalled();
+    expect(mockGetTransaction).not.toHaveBeenCalled();
     const ref = db.collection('some').doc('body');
 
     await db.runTransaction(async transaction => {
@@ -59,12 +63,12 @@ describe('Transactions', () => {
       expect(doc).toHaveProperty('id', 'body');
       expect(doc).toHaveProperty('exists', false);
     });
-    expect(FakeFirestore.Transaction.getMock).toHaveBeenCalled();
+    expect(mockGetTransaction).toHaveBeenCalled();
   });
 
   test('setMock is accessible', async () => {
     expect.assertions(4);
-    expect(FakeFirestore.Transaction.setMock).not.toHaveBeenCalled();
+    expect(mockSetTransaction).not.toHaveBeenCalled();
     const ref = db.collection('some').doc('body');
 
     await db.runTransaction(async transaction => {
@@ -75,12 +79,12 @@ describe('Transactions', () => {
       expect(result).toBeInstanceOf(FakeFirestore.Transaction);
       expect(mockSet).toHaveBeenCalledWith(newData, options);
     });
-    expect(FakeFirestore.Transaction.setMock).toHaveBeenCalled();
+    expect(mockSetTransaction).toHaveBeenCalled();
   });
 
   test('updateMock is accessible', async () => {
     expect.assertions(4);
-    expect(FakeFirestore.Transaction.updateMock).not.toHaveBeenCalled();
+    expect(mockUpdateTransaction).not.toHaveBeenCalled();
     const ref = db.collection('some').doc('body');
 
     await db.runTransaction(async transaction => {
@@ -90,12 +94,12 @@ describe('Transactions', () => {
       expect(result).toBeInstanceOf(FakeFirestore.Transaction);
       expect(mockUpdate).toHaveBeenCalledWith(newData);
     });
-    expect(FakeFirestore.Transaction.updateMock).toHaveBeenCalled();
+    expect(mockUpdateTransaction).toHaveBeenCalled();
   });
 
   test('deleteMock is accessible', async () => {
     expect.assertions(4);
-    expect(FakeFirestore.Transaction.deleteMock).not.toHaveBeenCalled();
+    expect(mockDeleteTransaction).not.toHaveBeenCalled();
     const ref = db.collection('some').doc('body');
 
     await db.runTransaction(async transaction => {
@@ -104,6 +108,6 @@ describe('Transactions', () => {
       expect(result).toBeInstanceOf(FakeFirestore.Transaction);
       expect(mockDelete).toHaveBeenCalled();
     });
-    expect(FakeFirestore.Transaction.deleteMock).toHaveBeenCalled();
+    expect(mockDeleteTransaction).toHaveBeenCalled();
   });
 });

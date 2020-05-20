@@ -26,6 +26,11 @@ const mockBatchCommit = jest.fn();
 const mockBatchUpdate = jest.fn();
 const mockBatchSet = jest.fn();
 
+const mockDeleteTransaction = jest.fn();
+const mockGetTransaction = jest.fn();
+const mockSetTransaction = jest.fn();
+const mockUpdateTransaction = jest.fn();
+
 function buildDocFromHash(hash = {}) {
   return {
     exists: !!hash || false,
@@ -467,12 +472,12 @@ FakeFirestore.Timestamp = class {
 
 FakeFirestore.Transaction = class {
   get(ref) {
-    FakeFirestore.Transaction.getMock(...arguments);
+    mockGetTransaction(...arguments);
     return ref.get();
   }
 
   set(ref) {
-    FakeFirestore.Transaction.setMock(...arguments);
+    mockSetTransaction(...arguments);
     const args = [...arguments];
     args.shift();
     ref.set(...args);
@@ -480,7 +485,7 @@ FakeFirestore.Transaction = class {
   }
 
   update(ref) {
-    FakeFirestore.Transaction.updateMock(...arguments);
+    mockUpdateTransaction(...arguments);
     const args = [...arguments];
     args.shift();
     ref.update(...args);
@@ -488,17 +493,11 @@ FakeFirestore.Transaction = class {
   }
 
   delete(ref) {
-    FakeFirestore.Transaction.deleteMock(...arguments);
+    mockDeleteTransaction(...arguments);
     ref.delete();
     return this;
   }
 };
-
-// Sandbox static Jest function mocks
-FakeFirestore.Transaction.deleteMock = jest.fn();
-FakeFirestore.Transaction.getMock = jest.fn();
-FakeFirestore.Transaction.setMock = jest.fn();
-FakeFirestore.Transaction.updateMock = jest.fn();
 
 module.exports = {
   FakeFirestore,
@@ -527,4 +526,8 @@ module.exports = {
   mockBatchCommit,
   mockBatchUpdate,
   mockBatchSet,
+  mockDeleteTransaction,
+  mockGetTransaction,
+  mockSetTransaction,
+  mockUpdateTransaction,
 };
