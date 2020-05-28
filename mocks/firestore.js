@@ -26,10 +26,10 @@ const mockBatchCommit = jest.fn();
 const mockBatchUpdate = jest.fn();
 const mockBatchSet = jest.fn();
 
-const mockDeleteTransaction = jest.fn();
 const mockGetTransaction = jest.fn();
 const mockSetTransaction = jest.fn();
 const mockUpdateTransaction = jest.fn();
+const mockDeleteTransaction = jest.fn();
 
 function buildDocFromHash(hash = {}) {
   return {
@@ -526,8 +526,8 @@ module.exports = {
   mockBatchCommit,
   mockBatchUpdate,
   mockBatchSet,
-  mockDeleteTransaction,
   mockGetTransaction,
   mockSetTransaction,
   mockUpdateTransaction,
+  mockDeleteTransaction,
 };

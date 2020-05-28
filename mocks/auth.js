@@ -4,9 +4,11 @@ const mockSendVerificationEmail = jest.fn();
 const mockSignInWithEmailAndPassword = jest.fn();
 const mockSendPasswordResetEmail = jest.fn();
 const mockVerifyIdToken = jest.fn();
+const mockSetCustomUserClaims = jest.fn();
 
 class FakeAuth {
   constructor(currentUser) {
+    currentUser = currentUser || {};
     currentUser.sendEmailVerification = mockSendVerificationEmail;
     this.currentUserRecord = currentUser;
   }
@@ -35,6 +37,11 @@ class FakeAuth {
     return Promise.resolve(this.currentUserRecord);
   }
 
+  setCustomUserClaims() {
+    mockSetCustomUserClaims(...arguments);
+    return Promise.resolve({});
+  }
+
   get currentUser() {
     const { uid, ...data } = this.currentUser;
     return { uid, data };
@@ -49,4 +56,5 @@ module.exports = {
   mockSendVerificationEmail,
   mockSignInWithEmailAndPassword,
   mockVerifyIdToken,
+  mockSetCustomUserClaims,
 };
