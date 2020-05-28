@@ -6,6 +6,7 @@ const {
   mockSendPasswordResetEmail,
   mockDeleteUser,
   mockVerifyIdToken,
+  mockGetUser,
   mockSetCustomUserClaims,
 } = require('../mocks/auth');
 
@@ -32,6 +33,7 @@ describe('we can start a firebase application', () => {
   });
 
   beforeEach(() => {
+    jest.clearAllMocks();
     this.firebase = require('firebase');
     this.admin = require('firebase-admin');
     this.firebase.initializeApp({
@@ -46,8 +48,8 @@ describe('we can start a firebase application', () => {
     expect(mockInitializeApp).toHaveBeenCalled();
   });
 
-  describe('Examples from documentation', () => {
-    describe('Client Auth Operations', () => {
+  describe('Client Auth Operations', () => {
+    describe('Examples from documentation', () => {
       test('add a user', async () => {
         expect.assertions(1);
         await this.firebase.auth().createUserWithEmailAndPassword('sam', 'hill');
@@ -66,8 +68,10 @@ describe('we can start a firebase application', () => {
         expect(mockSendPasswordResetEmail).toHaveBeenCalledWith('sam', null);
       });
     });
+  });
 
-    describe('Admin Auth Operations', () => {
+  describe('Admin Auth Operations', () => {
+    describe('Examples from documentation', () => {
       test('delete a user', async () => {
         expect.assertions(1);
         await this.admin.auth().deleteUser('some-uid');
@@ -80,6 +84,12 @@ describe('we can start a firebase application', () => {
         expect(mockVerifyIdToken).toHaveBeenCalledWith('token_string', true);
       });
 
+      test('get user object', async () => {
+        expect.assertions(1);
+        await this.admin.auth().getUser('some-uid');
+        expect(mockGetUser).toHaveBeenCalledWith('some-uid');
+      });
+
       test('set custom user claims', async () => {
         expect.assertions(1);
         const claims = {
@@ -87,6 +97,33 @@ describe('we can start a firebase application', () => {
         };
         await this.admin.auth().setCustomUserClaims('some-uid', claims);
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('some-uid', claims);
+      });
+    });
+
+    describe('Mocking return values', () => {
+      test('mocking the user object', async () => {
+        const uid = 'some-uid';
+        const userRecord = {
+          customClaims: undefined,
+          disabled: false,
+          email: 'bob@example.com',
+          emailVerified: false,
+          metadata: {},
+          multiFactor: undefined,
+          passwordHash: undefined,
+          passwordSalt: undefined,
+          phoneNumber: '928-555-4321',
+          photoURL: undefined,
+          providerData: [],
+          tenantId: null,
+          tokensValidAfterTime: undefined,
+          uid,
+        };
+        mockGetUser.mockReturnValueOnce(userRecord);
+        expect.assertions(2);
+        const result = await this.admin.auth().getUser(uid);
+        expect(mockGetUser).toHaveBeenCalledWith(uid);
+        expect(result).toStrictEqual(userRecord);
       });
     });
   });
