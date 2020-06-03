@@ -34,10 +34,11 @@ const mockDeleteTransaction = jest.fn();
 const mockTimestampToDate = jest.fn();
 const mockTimestampToMillis = jest.fn();
 
-function buildDocFromHash(hash = {}) {
+function buildDocFromHash(hash = {}, ref = {}) {
   return {
     exists: !!hash || false,
     id: hash.id || 'abc123',
+    ref,
     data() {
       const copy = { ...hash };
       delete copy.id;
@@ -335,19 +336,19 @@ FakeFirestore.DocumentReference = class {
     }
 
     if (!!document || false) {
-      return Promise.resolve(buildDocFromHash(document));
+      return Promise.resolve(buildDocFromHash(document, this));
     }
     return Promise.resolve({ exists: false, id: this.id });
   }
 
   update(object) {
     mockUpdate(...arguments);
-    return Promise.resolve(buildDocFromHash(object));
+    return Promise.resolve(buildDocFromHash(object, this));
   }
 
   set(object) {
     mockSet(...arguments);
-    return Promise.resolve(buildDocFromHash(object));
+    return Promise.resolve(buildDocFromHash(object, this));
   }
 
   isEqual(other) {
