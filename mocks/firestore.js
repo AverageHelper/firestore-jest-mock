@@ -33,6 +33,8 @@ const mockDeleteTransaction = jest.fn();
 
 const mockTimestampToDate = jest.fn();
 const mockTimestampToMillis = jest.fn();
+const mockTimestampFromDate = jest.fn();
+const mockTimestampFromMillis = jest.fn();
 
 function buildDocFromHash(hash = {}, ref) {
   return {
@@ -481,13 +483,16 @@ FakeFirestore.Timestamp = class {
   }
 
   static fromDate(date) {
-    return new FakeFirestore.Timestamp(date.getSeconds(), date.getMilliseconds() * 1000000);
+    return (
+      mockTimestampFromDate(...arguments) ||
+      new FakeFirestore.Timestamp(date.getSeconds(), date.getMilliseconds() * 1000000)
+    );
   }
 
   static fromMillis(millis) {
     const d = new Date(0);
     d.setMilliseconds(millis);
-    return FakeFirestore.Timestamp.fromDate(d);
+    return mockTimestampFromMillis(...arguments) || FakeFirestore.Timestamp.fromDate(d);
   }
 
   static now() {
@@ -564,4 +569,6 @@ module.exports = {
   mockDeleteTransaction,
   mockTimestampToDate,
   mockTimestampToMillis,
+  mockTimestampFromDate,
+  mockTimestampFromMillis,
 };
