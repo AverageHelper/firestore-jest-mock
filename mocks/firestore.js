@@ -36,15 +36,16 @@ const mockTimestampToMillis = jest.fn();
 const mockTimestampFromDate = jest.fn();
 const mockTimestampFromMillis = jest.fn();
 
-function buildDocFromHash(hash = {}, ref) {
+function buildDocFromHash(hash = {}) {
   return {
     exists: !!hash || false,
     id: hash.id || 'abc123',
-    ref: ref || { delete() {}, get() {}, set() {}, update() {}, collection() {} },
+    ref: hash._ref,
     data() {
       const copy = { ...hash };
       delete copy.id;
       delete copy._collections;
+      delete copy._ref;
       return copy;
     },
   };
@@ -172,6 +173,10 @@ FakeFirestore.Query = class {
       });
     }
 
+    // Make sure we have a 'good enough' document reference
+    requestedRecords.forEach(rec => {
+      rec._ref = this.firestore.doc('database/'.concat(rec.id));
+    });
     return Promise.resolve(buildQuerySnapShot(requestedRecords));
   }
 
@@ -267,7 +272,12 @@ FakeFirestore.CollectionReference = class extends FakeFirestore.Query {
 
   get() {
     mockGet(...arguments);
-    return Promise.resolve(buildQuerySnapShot(this.records()));
+    // Make sure we have a 'good enough' document reference
+    const records = this.records();
+    records.forEach(rec => {
+      rec._ref = this.doc(rec.id);
+    });
+    return Promise.resolve(buildQuerySnapShot(records));
   }
 
   isEqual(other) {
@@ -338,19 +348,20 @@ FakeFirestore.DocumentReference = class {
     }
 
     if (!!document || false) {
-      return Promise.resolve(buildDocFromHash(document, this));
+      document._ref = this;
+      return Promise.resolve(buildDocFromHash(document));
     }
-    return Promise.resolve({ exists: false, id: this.id });
+    return Promise.resolve({ exists: false, id: this.id, ref: this });
   }
 
   update(object) {
     mockUpdate(...arguments);
-    return Promise.resolve(buildDocFromHash(object, this));
+    return Promise.resolve(buildDocFromHash({ ...object, _ref: this }));
   }
 
   set(object) {
     mockSet(...arguments);
-    return Promise.resolve(buildDocFromHash(object, this));
+    return Promise.resolve(buildDocFromHash({ ...object, _ref: this }));
   }
 
   isEqual(other) {
