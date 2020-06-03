@@ -31,6 +31,9 @@ const mockSetTransaction = jest.fn();
 const mockUpdateTransaction = jest.fn();
 const mockDeleteTransaction = jest.fn();
 
+const mockTimestampToDate = jest.fn();
+const mockTimestampToMillis = jest.fn();
+
 function buildDocFromHash(hash = {}) {
   return {
     exists: !!hash || false,
@@ -450,17 +453,45 @@ FakeFirestore.Timestamp = class {
     this.nanoseconds = nanoseconds;
   }
 
-  static now() {
-    const now = Date.now();
-    return new FakeFirestore.Timestamp(now / 1000, 0);
-  }
-
   isEqual(other) {
     return (
-      other instanceof FakeFirestore.FieldValue.Timestamp &&
+      other instanceof FakeFirestore.Timestamp &&
       other.seconds === this.seconds &&
       other.nanoseconds === this.nanoseconds
     );
+  }
+
+  toDate() {
+    const d = new Date(0);
+    d.setSeconds(this.seconds);
+    d.setMilliseconds(this.nanoseconds / 1000000);
+    return mockTimestampToDate(...arguments) || d;
+  }
+
+  toMillis() {
+    const d = new Date(0);
+    d.setSeconds(this.seconds);
+    d.setMilliseconds(this.nanoseconds / 1000000);
+    return mockTimestampToMillis(...arguments) || d.getMilliseconds();
+  }
+
+  valueOf() {
+    return JSON.stringify(this.toMillis());
+  }
+
+  static fromDate(date) {
+    return new FakeFirestore.Timestamp(date.getSeconds(), date.getMilliseconds() * 1000000);
+  }
+
+  static fromMillis(millis) {
+    const d = new Date(0);
+    d.setMilliseconds(millis);
+    return FakeFirestore.Timestamp.fromDate(d);
+  }
+
+  static now() {
+    const now = new Date();
+    return FakeFirestore.Timestamp.fromDate(now);
   }
 };
 
@@ -530,4 +561,6 @@ module.exports = {
   mockSetTransaction,
   mockUpdateTransaction,
   mockDeleteTransaction,
+  mockTimestampToDate,
+  mockTimestampToMillis,
 };
