@@ -34,11 +34,11 @@ const mockDeleteTransaction = jest.fn();
 const mockTimestampToDate = jest.fn();
 const mockTimestampToMillis = jest.fn();
 
-function buildDocFromHash(hash = {}, ref = {}) {
+function buildDocFromHash(hash = {}, ref) {
   return {
     exists: !!hash || false,
     id: hash.id || 'abc123',
-    ref,
+    ref: ref || { delete() {}, get() {}, set() {}, update() {}, collection() {} },
     data() {
       const copy = { ...hash };
       delete copy.id;
