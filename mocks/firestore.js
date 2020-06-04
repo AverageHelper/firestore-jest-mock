@@ -1,69 +1,27 @@
-const mockCollection = jest.fn();
 const mockCollectionGroup = jest.fn();
-const mockDoc = jest.fn();
-const mockWhere = jest.fn();
 const mockBatch = jest.fn();
-const mockGet = jest.fn();
 const mockGetAll = jest.fn();
-const mockUpdate = jest.fn();
-const mockAdd = jest.fn();
-const mockSet = jest.fn();
-const mockDelete = jest.fn();
-const mockOrderBy = jest.fn();
-const mockLimit = jest.fn();
-const mockStartAfter = jest.fn();
-const mockStartAt = jest.fn();
 const mockRunTransaction = jest.fn();
 
-const mockArrayRemoveFieldValue = jest.fn();
-const mockArrayUnionFieldValue = jest.fn();
-const mockDeleteFieldValue = jest.fn();
-const mockIncrementFieldValue = jest.fn();
-const mockServerTimestampFieldValue = jest.fn();
+const mockCollection = jest.fn();
+const mockDoc = jest.fn();
+const mockGet = jest.fn();
+const mockAdd = jest.fn();
+const mockDelete = jest.fn();
+const mockUpdate = jest.fn();
+const mockSet = jest.fn();
 
 const mockBatchDelete = jest.fn();
 const mockBatchCommit = jest.fn();
 const mockBatchUpdate = jest.fn();
 const mockBatchSet = jest.fn();
 
-const mockGetTransaction = jest.fn();
-const mockSetTransaction = jest.fn();
-const mockUpdateTransaction = jest.fn();
-const mockDeleteTransaction = jest.fn();
+const query = require('./query');
+const fieldValue = require('./fieldValue');
+const transaction = require('./transaction');
 
-const mockTimestampToDate = jest.fn();
-const mockTimestampToMillis = jest.fn();
-const mockTimestampFromDate = jest.fn();
-const mockTimestampFromMillis = jest.fn();
-
-function buildDocFromHash(hash = {}) {
-  return {
-    exists: !!hash || false,
-    id: hash.id || 'abc123',
-    ref: hash._ref,
-    data() {
-      const copy = { ...hash };
-      delete copy.id;
-      delete copy._collections;
-      delete copy._ref;
-      return copy;
-    },
-  };
-}
-
-function buildQuerySnapShot(requestedRecords) {
-  const multipleRecords = requestedRecords.filter(rec => !!rec);
-  const docs = multipleRecords.map(buildDocFromHash);
-
-  return {
-    empty: multipleRecords.length < 1,
-    size: multipleRecords.length,
-    docs,
-    forEach(callback) {
-      return docs.forEach(callback);
-    },
-  };
-}
+const buildDocFromHash = require('./helpers/buildDocFromHash');
+const buildQuerySnapShot = require('./helpers/buildQuerySnapShot');
 
 /*
  * ============
@@ -138,66 +96,92 @@ class FakeFirestore {
   }
 }
 
+FakeFirestore.Query = query.Query;
+FakeFirestore.FieldValue = fieldValue.FieldValue;
+FakeFirestore.Timestamp = fieldValue.Timestamp;
+FakeFirestore.Transaction = transaction.Transaction;
+
 /*
  * ============
- *  Queries
+ *  Document Reference
  * ============
  */
 
-FakeFirestore.Query = class {
-  constructor(collectionName, firestore) {
-    this.collectionName = collectionName;
-    this.firestore = firestore;
+FakeFirestore.DocumentReference = class {
+  constructor(id, parent) {
+    this.id = id;
+    this.parent = parent;
+    this.firestore = parent.firestore;
+    this.path = parent.path.concat(`/${id}`);
+  }
+
+  collection(collectionName) {
+    mockCollection(...arguments);
+    return new FakeFirestore.CollectionReference(collectionName, this);
+  }
+
+  delete() {
+    mockDelete(...arguments);
+    return Promise.resolve();
   }
 
   get() {
-    // Return all records in collections matching collectionName (use DFS)
-    const requestedRecords = [];
-    // requestedRecords.push(...this.firestore.database[this.collectionName]);
+    mockGet(...arguments);
+    const pathArray = this.path.split('/');
 
-    const st = [this.firestore.database];
-    // At each collection list node, get collection in collection list whose id
-    // matches this.collectionName
-    while (st.length > 0) {
-      const subcollections = st.pop();
-      const documents = subcollections[this.collectionName];
-      if (documents && Array.isArray(documents)) {
-        requestedRecords.push(...documents);
-      }
-
-      // For each collection in subcollections, get each document's _collections array
-      // and push onto st.
-      Object.values(subcollections).forEach(collection => {
-        const documents = collection.filter(d => !!d._collections);
-        st.push(...documents.map(d => d._collections));
-      });
+    pathArray.shift(); // drop 'database'; it's always first
+    let requestedRecords = this.firestore.database[pathArray.shift()];
+    let document = null;
+    if (requestedRecords) {
+      const documentId = pathArray.shift();
+      document = requestedRecords.find(record => record.id === documentId);
+    } else {
+      return Promise.resolve({ exists: false, id: this.id });
     }
 
-    // Make sure we have a 'good enough' document reference
-    requestedRecords.forEach(rec => {
-      rec._ref = this.firestore.doc('database/'.concat(rec.id));
-    });
-    return Promise.resolve(buildQuerySnapShot(requestedRecords));
+    for (let index = 0; index < pathArray.length; index += 2) {
+      const collectionId = pathArray[index];
+      const documentId = pathArray[index + 1];
+
+      if (!document || !document._collections) {
+        return Promise.resolve({ exists: false, id: this.id });
+      }
+      requestedRecords = document._collections[collectionId] || [];
+      if (requestedRecords.length === 0) {
+        return Promise.resolve({ exists: false, id: this.id });
+      }
+
+      document = requestedRecords.find(record => record.id === documentId);
+      if (!document) {
+        return Promise.resolve({ exists: false, id: this.id });
+      }
+
+      // +2 skips to next document
+    }
+
+    if (!!document || false) {
+      document._ref = this;
+      return Promise.resolve(buildDocFromHash(document));
+    }
+    return Promise.resolve({ exists: false, id: this.id, ref: this });
   }
 
-  where() {
-    return mockWhere(...arguments) || this;
+  update(object) {
+    mockUpdate(...arguments);
+    return Promise.resolve(buildDocFromHash({ ...object, _ref: this }));
   }
 
-  limit() {
-    return mockLimit(...arguments) || this;
+  set(object) {
+    mockSet(...arguments);
+    return Promise.resolve(buildDocFromHash({ ...object, _ref: this }));
   }
 
-  orderBy() {
-    return mockOrderBy(...arguments) || this;
-  }
-
-  startAfter() {
-    return mockStartAfter(...arguments) || this;
-  }
-
-  startAt() {
-    return mockStartAt(...arguments) || this;
+  isEqual(other) {
+    return (
+      other instanceof FakeFirestore.DocumentReference &&
+      other.firestore === this.firestore &&
+      other.path === this.path
+    );
   }
 };
 
@@ -289,297 +273,24 @@ FakeFirestore.CollectionReference = class extends FakeFirestore.Query {
   }
 };
 
-/*
- * ============
- *  Document Reference
- * ============
- */
-
-FakeFirestore.DocumentReference = class {
-  constructor(id, parent) {
-    this.id = id;
-    this.parent = parent;
-    this.firestore = parent.firestore;
-    this.path = parent.path.concat(`/${id}`);
-  }
-
-  collection(collectionName) {
-    mockCollection(...arguments);
-    return new FakeFirestore.CollectionReference(collectionName, this);
-  }
-
-  delete() {
-    mockDelete(...arguments);
-    return Promise.resolve();
-  }
-
-  get() {
-    mockGet(...arguments);
-    const pathArray = this.path.split('/');
-
-    pathArray.shift(); // drop 'database'; it's always first
-    let requestedRecords = this.firestore.database[pathArray.shift()];
-    let document = null;
-    if (requestedRecords) {
-      const documentId = pathArray.shift();
-      document = requestedRecords.find(record => record.id === documentId);
-    } else {
-      return Promise.resolve({ exists: false, id: this.id });
-    }
-
-    for (let index = 0; index < pathArray.length; index += 2) {
-      const collectionId = pathArray[index];
-      const documentId = pathArray[index + 1];
-
-      if (!document || !document._collections) {
-        return Promise.resolve({ exists: false, id: this.id });
-      }
-      requestedRecords = document._collections[collectionId] || [];
-      if (requestedRecords.length === 0) {
-        return Promise.resolve({ exists: false, id: this.id });
-      }
-
-      document = requestedRecords.find(record => record.id === documentId);
-      if (!document) {
-        return Promise.resolve({ exists: false, id: this.id });
-      }
-
-      // +2 skips to next document
-    }
-
-    if (!!document || false) {
-      document._ref = this;
-      return Promise.resolve(buildDocFromHash(document));
-    }
-    return Promise.resolve({ exists: false, id: this.id, ref: this });
-  }
-
-  update(object) {
-    mockUpdate(...arguments);
-    return Promise.resolve(buildDocFromHash({ ...object, _ref: this }));
-  }
-
-  set(object) {
-    mockSet(...arguments);
-    return Promise.resolve(buildDocFromHash({ ...object, _ref: this }));
-  }
-
-  isEqual(other) {
-    return (
-      other instanceof FakeFirestore.DocumentReference &&
-      other.firestore === this.firestore &&
-      other.path === this.path
-    );
-  }
-};
-
-/*
- * ============
- *  FieldValue
- * ============
- */
-
-FakeFirestore.FieldValue = class {
-  constructor(type, value) {
-    this.type = type;
-    this.value = value;
-  }
-
-  isEqual(other) {
-    return (
-      other instanceof FakeFirestore.FieldValue &&
-      other.type === this.type &&
-      other.value === this.value
-    );
-  }
-
-  transform(value) {
-    switch (this.type) {
-      case 'arrayUnion':
-        if (Array.isArray(value)) {
-          return value.concat(this.value.filter(v => !value.includes(v)));
-        } else {
-          return this.value;
-        }
-      case 'arrayRemove':
-        if (Array.isArray(value)) {
-          return value.filter(v => !this.value.includes(v));
-        } else {
-          return value;
-        }
-      case 'increment': {
-        const amount = Number(this.value);
-        if (typeof value === 'number') {
-          return value + amount;
-        } else {
-          return amount;
-        }
-      }
-      case 'serverTimestamp': {
-        return FakeFirestore.Timestamp.now();
-      }
-      case 'delete':
-        return undefined;
-    }
-  }
-
-  static arrayUnion(elements = []) {
-    mockArrayUnionFieldValue(...arguments);
-    if (!Array.isArray(elements)) {
-      elements = [elements];
-    }
-    return new FakeFirestore.FieldValue('arrayUnion', elements);
-  }
-
-  static arrayRemove(elements) {
-    mockArrayRemoveFieldValue(...arguments);
-    if (!Array.isArray(elements)) {
-      elements = [elements];
-    }
-    return new FakeFirestore.FieldValue('arrayRemove', elements);
-  }
-
-  static increment(amount = 1) {
-    mockIncrementFieldValue(...arguments);
-    return new FakeFirestore.FieldValue('increment', amount);
-  }
-
-  static serverTimestamp() {
-    mockServerTimestampFieldValue(...arguments);
-    return new FakeFirestore.FieldValue('serverTimestamp');
-  }
-
-  static delete() {
-    mockDeleteFieldValue(...arguments);
-    return new FakeFirestore.FieldValue('delete');
-  }
-};
-
-/*
- * ============
- *  Timestamp
- * ============
- */
-
-FakeFirestore.Timestamp = class {
-  constructor(seconds, nanoseconds) {
-    this.seconds = seconds;
-    this.nanoseconds = nanoseconds;
-  }
-
-  isEqual(other) {
-    return (
-      other instanceof FakeFirestore.Timestamp &&
-      other.seconds === this.seconds &&
-      other.nanoseconds === this.nanoseconds
-    );
-  }
-
-  toDate() {
-    const d = new Date(0);
-    d.setSeconds(this.seconds);
-    d.setMilliseconds(this.nanoseconds / 1000000);
-    return mockTimestampToDate(...arguments) || d;
-  }
-
-  toMillis() {
-    const d = new Date(0);
-    d.setSeconds(this.seconds);
-    d.setMilliseconds(this.nanoseconds / 1000000);
-    return mockTimestampToMillis(...arguments) || d.getMilliseconds();
-  }
-
-  valueOf() {
-    return JSON.stringify(this.toMillis());
-  }
-
-  static fromDate(date) {
-    return (
-      mockTimestampFromDate(...arguments) ||
-      new FakeFirestore.Timestamp(date.getSeconds(), date.getMilliseconds() * 1000000)
-    );
-  }
-
-  static fromMillis(millis) {
-    const d = new Date(0);
-    d.setMilliseconds(millis);
-    return mockTimestampFromMillis(...arguments) || FakeFirestore.Timestamp.fromDate(d);
-  }
-
-  static now() {
-    const now = new Date();
-    return FakeFirestore.Timestamp.fromDate(now);
-  }
-};
-
-/*
- * ============
- *  Transactions
- * ============
- */
-
-FakeFirestore.Transaction = class {
-  get(ref) {
-    mockGetTransaction(...arguments);
-    return ref.get();
-  }
-
-  set(ref) {
-    mockSetTransaction(...arguments);
-    const args = [...arguments];
-    args.shift();
-    ref.set(...args);
-    return this;
-  }
-
-  update(ref) {
-    mockUpdateTransaction(...arguments);
-    const args = [...arguments];
-    args.shift();
-    ref.update(...args);
-    return this;
-  }
-
-  delete(ref) {
-    mockDeleteTransaction(...arguments);
-    ref.delete();
-    return this;
-  }
-};
-
 module.exports = {
   FakeFirestore,
-  mockAdd,
   mockBatch,
-  mockCollection,
   mockCollectionGroup,
-  mockDelete,
+  mockGetAll,
+  mockRunTransaction,
+  mockCollection,
   mockDoc,
   mockGet,
-  mockGetAll,
-  mockOrderBy,
-  mockLimit,
-  mockStartAfter,
-  mockStartAt,
-  mockRunTransaction,
-  mockSet,
+  mockAdd,
+  mockDelete,
   mockUpdate,
-  mockWhere,
-  mockArrayRemoveFieldValue,
-  mockArrayUnionFieldValue,
-  mockDeleteFieldValue,
-  mockIncrementFieldValue,
-  mockServerTimestampFieldValue,
+  mockSet,
   mockBatchDelete,
   mockBatchCommit,
   mockBatchUpdate,
   mockBatchSet,
-  mockGetTransaction,
-  mockSetTransaction,
-  mockUpdateTransaction,
-  mockDeleteTransaction,
-  mockTimestampToDate,
-  mockTimestampToMillis,
-  mockTimestampFromDate,
-  mockTimestampFromMillis,
+  ...query.mocks,
+  ...transaction.mocks,
+  ...fieldValue.mocks,
 };
