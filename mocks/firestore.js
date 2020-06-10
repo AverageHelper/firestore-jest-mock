@@ -39,12 +39,15 @@ class FakeFirestore {
     return {
       delete() {
         mockBatchDelete(...arguments);
+        return this;
       },
       set() {
         mockBatchSet(...arguments);
+        return this;
       },
       update() {
         mockBatchUpdate(...arguments);
+        return this;
       },
       commit() {
         mockBatchCommit(...arguments);
