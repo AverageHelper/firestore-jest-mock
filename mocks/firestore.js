@@ -139,7 +139,7 @@ FakeFirestore.DocumentReference = class {
       const documentId = pathArray.shift();
       document = requestedRecords.find(record => record.id === documentId);
     } else {
-      return Promise.resolve({ exists: false, id: this.id });
+      return Promise.resolve({ exists: false, data: () => undefined, id: this.id });
     }
 
     for (let index = 0; index < pathArray.length; index += 2) {
@@ -147,16 +147,16 @@ FakeFirestore.DocumentReference = class {
       const documentId = pathArray[index + 1];
 
       if (!document || !document._collections) {
-        return Promise.resolve({ exists: false, id: this.id });
+        return Promise.resolve({ exists: false, data: () => undefined, id: this.id });
       }
       requestedRecords = document._collections[collectionId] || [];
       if (requestedRecords.length === 0) {
-        return Promise.resolve({ exists: false, id: this.id });
+        return Promise.resolve({ exists: false, data: () => undefined, id: this.id });
       }
 
       document = requestedRecords.find(record => record.id === documentId);
       if (!document) {
-        return Promise.resolve({ exists: false, id: this.id });
+        return Promise.resolve({ exists: false, data: () => undefined, id: this.id });
       }
 
       // +2 skips to next document
@@ -166,7 +166,7 @@ FakeFirestore.DocumentReference = class {
       document._ref = this;
       return Promise.resolve(buildDocFromHash(document));
     }
-    return Promise.resolve({ exists: false, id: this.id, ref: this });
+    return Promise.resolve({ exists: false, data: () => undefined, id: this.id, ref: this });
   }
 
   update(object) {
