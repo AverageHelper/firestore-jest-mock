@@ -9,6 +9,7 @@ const buildQuerySnapShot = require('./helpers/buildQuerySnapShot');
 const mockWhere = jest.fn();
 const mockLimit = jest.fn();
 const mockOrderBy = jest.fn();
+const mockOffset = jest.fn();
 const mockStartAfter = jest.fn();
 const mockStartAt = jest.fn();
 
@@ -52,6 +53,10 @@ class Query {
     return mockWhere(...arguments) || this;
   }
 
+  offset() {
+    return mockOffset(...arguments) || this;
+  }
+
   limit() {
     return mockLimit(...arguments) || this;
   }
@@ -75,6 +80,7 @@ module.exports = {
     mockWhere,
     mockLimit,
     mockOrderBy,
+    mockOffset,
     mockStartAfter,
     mockStartAt,
   },

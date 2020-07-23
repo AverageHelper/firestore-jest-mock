@@ -1,5 +1,4 @@
-const { FakeFirestore, mockCollection, mockGet, mockWhere } = require('../mocks/firestore');
-
+const { mockCollection, mockGet, mockWhere, mockOffset } = require('../mocks/firestore');
 const { mockFirebase } = require('firestore-jest-mock');
 
 describe('test', () => {
@@ -24,11 +23,12 @@ describe('test', () => {
   const db = firebase.firestore();
 
   test('It can query firestore', async () => {
-    await db
+    const animals = await db
       .collection('animals')
       .where('type', '==', 'mammal')
       .get();
 
+    expect(animals).toHaveProperty('docs', expect.any(Array));
     expect(mockWhere).toHaveBeenCalledWith('type', '==', 'mammal');
     expect(mockCollection).toHaveBeenCalledWith('animals');
     expect(mockGet).toHaveBeenCalled();
@@ -69,5 +69,19 @@ describe('test', () => {
     });
     result = await ref.where('type', '==', 'mammal').get();
     expect(result.docs.length).toBe(2);
+  });
+
+  test('It can offset query', async () => {
+    const firstTwoMammals = await db
+      .collection('animals')
+      .where('type', '==', 'mammal')
+      .offset(2)
+      .get();
+
+    expect(firstTwoMammals).toHaveProperty('docs', expect.any(Array));
+    expect(mockWhere).toHaveBeenCalledWith('type', '==', 'mammal');
+    expect(mockCollection).toHaveBeenCalledWith('animals');
+    expect(mockGet).toHaveBeenCalled();
+    expect(mockOffset).toHaveBeenCalledWith(2);
   });
 });
